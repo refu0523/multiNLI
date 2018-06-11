@@ -3,7 +3,7 @@ import re
 import random
 import json
 import collections
-import parameters as params
+import util.parameters as params
 import pickle
 
 FIXED_PARAMETERS = params.load_parameters()
@@ -135,7 +135,7 @@ def loadEmbedding_rand(path, word_indices):
     # Explicitly assign embedding of <PAD> to be zeros.
     emb[0:2, :] = np.zeros((1,m), dtype="float32")
     
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding="utf-8") as f:
         for i, line in enumerate(f):
             if FIXED_PARAMETERS["embeddings_to_load"] != None:
                 if i >= FIXED_PARAMETERS["embeddings_to_load"]:
@@ -143,7 +143,11 @@ def loadEmbedding_rand(path, word_indices):
             
             s = line.split()
             if s[0] in word_indices:
-                emb[word_indices[s[0]], :] = np.asarray(s[1:])
+                try:
+                    emb[word_indices[s[0]], :] = np.asarray(s[1:])
+                except ValueError:
+                    print(s[0])
+                    continue
 
     return emb
 

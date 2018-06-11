@@ -48,6 +48,37 @@ class MyModel(object):
         premise_list = tf.unstack(premise_bi, axis=1)
         hypothesis_list = tf.unstack(hypothesis_bi, axis=1)
 
+        ### self-attention ###
+
+        premise_self_attn = []
+        alphas = []
+
+        for i in range(self.sequence_length):
+            scores_i_list = []
+            for j in range(self.sequence_length):
+                score_ij = tf.reduce_sum(tf.multiply(premise_list[i], premise_list[j]), 1, keep_dims=True)
+                scores_i_list.append(score_ij)
+            scores_i = tf.stack(scores_i_list, axis=1)
+            alpha_i = blocks.masked_softmax(scores_i, mask_prem)
+            p_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, premise_bi), 1)
+            premise_self_attn.append(p_tilde_i)
+
+            alphas.append(alpha_i)
+
+
+        hypothesis_self_attn = []
+        for i in range(self.sequence_length):
+            scores_i_list = []
+            for j in range(self.sequence_length):
+                score_ij = tf.reduce_sum(tf.multiply(hypothesis_list[i], hypothesis_list[j]), 1, keep_dims=True)
+                scores_i_list.append(score_ij)
+            scores_i = tf.stack(scores_i_list, axis=1)
+            beta_i = blocks.masked_softmax(scores_i, mask_hyp)
+            h_tilde_i = tf.reduce_sum(tf.multiply(beta_i, hypothesis_bi), 1)
+            hypothesis_self_attn.append(h_tilde_i)
+
+        premise_self_attns = tf.stack(premise_self_attn, axis=1)
+        hypothesis_self_attns = tf.stack(hypothesis_self_attn, axis=1)
 
         ### Attention ###
 
@@ -59,10 +90,12 @@ class MyModel(object):
 
             scores_i_list = []
             for j in range(self.sequence_length):
+                #caculate similarity score_ij (e_ij)
                 score_ij = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True)
                 scores_i_list.append(score_ij)
             
             scores_i = tf.stack(scores_i_list, axis=1)
+            #alpha_i: weigth of hypothesis_bi
             alpha_i = blocks.masked_softmax(scores_i, mask_hyp)
             a_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, hypothesis_bi), 1)
             premise_attn.append(a_tilde_i)
@@ -93,16 +126,24 @@ class MyModel(object):
 
 
         ### Subcomponent Inference ###
+        prem_self_diff = tf.subtract(premise_bi, premise_self_attns)
+        prem_self_mul = tf.multiply(premise_bi, premise_self_attns)
+        hyp_self_diff = tf.subtract(hypothesis_bi, hypothesis_self_attns)
+        hyp_self_mul = tf.multiply(hypothesis_bi, hypothesis_self_attns)
 
         prem_diff = tf.subtract(premise_bi, premise_attns)
         prem_mul = tf.multiply(premise_bi, premise_attns)
         hyp_diff = tf.subtract(hypothesis_bi, hypothesis_attns)
         hyp_mul = tf.multiply(hypothesis_bi, hypothesis_attns)
 
-        m_a = tf.concat([premise_bi, premise_attns, prem_diff, prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi, hypothesis_attns, hyp_diff, hyp_mul], 2)
 
 
+        m_a = tf.concat([premise_bi, premise_self_attns, premise_attns, 
+                         prem_self_diff, prem_self_mul,  prem_diff, prem_mul], 2)
+        m_b = tf.concat([hypothesis_bi, hypothesis_self_attns, hypothesis_attns,
+                         hyp_self_diff, hyp_self_mul, hyp_diff, hyp_mul], 2)
+        
+        
         ### Inference Composition ###
 
         v1_outs, c3 = blocks.biLSTM(m_a, dim=self.dim, seq_len=prem_seq_lengths, name='v1')

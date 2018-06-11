@@ -76,7 +76,8 @@ class modelClassifier:
         self.alpha = FIXED_PARAMETERS["alpha"]
 
         logger.Log("Building model from %s.py" %(model))
-        self.model = MyModel(seq_length=self.sequence_length, emb_dim=self.embedding_dim,  hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train)
+        self.model = MyModel(seq_length=self.sequence_length, emb_dim=self.embedding_dim,
+        					 hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train)
 
         # Perform gradient descent with Adam
         self.optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.9, beta2=0.999).minimize(self.model.total_cost)

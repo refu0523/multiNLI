@@ -49,21 +49,7 @@ parser.add_argument("--test", action='store_true', help="Call if you want to onl
 
 args = parser.parse_args()
 
-"""
-# Check if test sets are available. If not, create an empty file.
-test_matched = "{}/multinli_0.9/multinli_0.9_test_matched_unlabeled.jsonl".format(args.datapath)
 
-if os.path.isfile(test_matched):
-    test_matched = "{}/multinli_0.9/multinli_0.9_test_matched_unlabeled.jsonl".format(args.datapath)
-    test_mismatched = "{}/multinli_0.9/multinli_0.9_test_matched_unlabeled.jsonl".format(args.datapath)
-    test_path = "{}/multinli_0.9/".format(args.datapath)
-else:
-    test_path = "{}/multinli_0.9/".format(args.datapath)
-    temp_file = os.path.join(test_path, "temp.jsonl")
-    io.open(temp_file, "wb")
-    test_matched = temp_file
-    test_mismatched = temp_file
-"""
 # Check if test sets are available. If not, create an empty file.
 test_matched = "{}/multinli_0.9/multinli_0.9_test_matched.jsonl".format(args.datapath)
 
