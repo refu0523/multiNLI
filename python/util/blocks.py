@@ -56,6 +56,10 @@ def LSTM(inputs, dim, seq_len, name):
 
     return hidden_states, cell_states
 
+def dense(x, num_labels):
+    x = tf.layers.dense(x, num_labels, kernel_regularizer=tf.contrib.layers.l2_regularizer(0.0001))
+    x = tf.tanh(x)
+    return x
 
 def last_output(output, true_length):
     """
