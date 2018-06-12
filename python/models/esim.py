@@ -1,5 +1,8 @@
 import tensorflow as tf
 from util import blocks
+from functools import reduce
+from operator import mul
+
 
 class MyModel(object):
     def __init__(self, seq_length, emb_dim, hidden_dim, embeddings, emb_train):
@@ -49,7 +52,7 @@ class MyModel(object):
         hypothesis_list = tf.unstack(hypothesis_bi, axis=1)
 
         ### self-attention ###
-
+        
         premise_self_attn = []
         alphas = []
 
@@ -63,9 +66,8 @@ class MyModel(object):
             p_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, premise_bi), 1)
             premise_self_attn.append(p_tilde_i)
 
-            alphas.append(alpha_i)
 
-
+        beta_i = []
         hypothesis_self_attn = []
         for i in range(self.sequence_length):
             scores_i_list = []
@@ -126,10 +128,10 @@ class MyModel(object):
 
 
         ### Subcomponent Inference ###
-        prem_self_diff = tf.subtract(premise_bi, premise_self_attns)
-        prem_self_mul = tf.multiply(premise_bi, premise_self_attns)
-        hyp_self_diff = tf.subtract(hypothesis_bi, hypothesis_self_attns)
-        hyp_self_mul = tf.multiply(hypothesis_bi, hypothesis_self_attns)
+        #prem_self_diff = tf.subtract(premise_bi, premise_self_attns)
+        #prem_self_mul = tf.multiply(premise_bi, premise_self_attns)
+        #hyp_self_diff = tf.subtract(hypothesis_bi, hypothesis_self_attns)
+        #hyp_self_mul = tf.multiply(hypothesis_bi, hypothesis_self_attns)
 
         prem_diff = tf.subtract(premise_bi, premise_attns)
         prem_mul = tf.multiply(premise_bi, premise_attns)
@@ -138,10 +140,10 @@ class MyModel(object):
 
 
 
-        m_a = tf.concat([premise_bi, premise_self_attns, premise_attns, 
-                         prem_self_diff, prem_self_mul,  prem_diff, prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi, hypothesis_self_attns, hypothesis_attns,
-                         hyp_self_diff, hyp_self_mul, hyp_diff, hyp_mul], 2)
+        m_a = tf.concat([premise_bi, premise_attns, premise_self_attns,
+                           prem_diff, prem_mul], 2)
+        m_b = tf.concat([hypothesis_bi,  hypothesis_attns, hypothesis_self_attns
+                          hyp_diff, hyp_mul], 2)
         
         
         ### Inference Composition ###
@@ -178,3 +180,5 @@ class MyModel(object):
 
         # Define the cost function
         self.total_cost = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits))
+        
+       
