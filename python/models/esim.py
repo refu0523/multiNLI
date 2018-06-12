@@ -55,7 +55,7 @@ class MyModel(object):
         
         premise_self_attn = []
         alphas = []
-
+        #print(premise_listp[i].shape)
         for i in range(self.sequence_length):
             scores_i_list = []
             for j in range(self.sequence_length):
@@ -142,7 +142,7 @@ class MyModel(object):
 
         m_a = tf.concat([premise_bi, premise_attns, premise_self_attns,
                            prem_diff, prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi,  hypothesis_attns, hypothesis_self_attns
+        m_b = tf.concat([hypothesis_bi,  hypothesis_attns, hypothesis_self_attns,
                           hyp_diff, hyp_mul], 2)
         
         
