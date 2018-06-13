@@ -52,16 +52,15 @@ class MyModel(object):
         hypothesis_list = tf.unstack(hypothesis_bi, axis=1)
 
         ### self-attention ###
-        
+        premise_project = blocks.dense(premise_bi, 600)
+        premise_project_list = tf.unstack(premise_project, axis=1)
         premise_self_attn = []
         alphas = []
-        print(premise_list[0].shape)
+
         for i in range(self.sequence_length):
             scores_i_list = []
             for j in range(self.sequence_length):
-                p_i = blocks.dense(premise_list[i], 600)
-                p_j = blocks.dense(premise_list[j], 600)
-                score_ij = tf.reduce_sum(tf.multiply(p_i, p_j), 1, keep_dims=True)
+                score_ij = tf.reduce_sum(tf.multiply(premise_project_list[i], premise_project_list[j]), 1, keep_dims=True)
                 scores_i_list.append(score_ij)
             scores_i = tf.stack(scores_i_list, axis=1)
             alpha_i = blocks.masked_softmax(scores_i, mask_prem)
@@ -69,14 +68,13 @@ class MyModel(object):
             premise_self_attn.append(p_tilde_i)
 
 
-        beta_i = []
+        hypothesis_project = blocks.dense(hypothesis_bi, 600)
+        hypothesis_project_list = tf.unstack(hypothesis_project, axis=1)
         hypothesis_self_attn = []
         for i in range(self.sequence_length):
             scores_i_list = []
             for j in range(self.sequence_length):
-                h_i = blocks.dense(hypothesis_list[i], 600)
-                h_j = blocks.dense(hypothesis_list[j], 600)
-                score_ij = tf.reduce_sum(tf.multiply(h_i, h_j), 1, keep_dims=True)
+                score_ij = tf.reduce_sum(tf.multiply(hypothesis_project_list[i], hypothesis_project_list[j]), 1, keep_dims=True)
                 scores_i_list.append(score_ij)
             scores_i = tf.stack(scores_i_list, axis=1)
             beta_i = blocks.masked_softmax(scores_i, mask_hyp)
@@ -142,7 +140,8 @@ class MyModel(object):
         hyp_diff = tf.subtract(hypothesis_bi, hypothesis_attns)
         hyp_mul = tf.multiply(hypothesis_bi, hypothesis_attns)
 
-
+        
+        
 
         m_a = tf.concat([premise_bi, premise_attns, premise_self_attns,
                            prem_diff, prem_mul], 2)

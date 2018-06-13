@@ -242,10 +242,10 @@ if test == False:
     logger.Log("Acc on mismatched multiNLI dev-set: %s" %(evaluate_classifier(classifier.classify, test_mismatched, FIXED_PARAMETERS["batch_size"]))[0])
     logger.Log("Acc on SNLI test-set: %s" %(evaluate_classifier(classifier.classify, test_snli, FIXED_PARAMETERS["batch_size"]))[0])
 else: 
-    results = evaluate_final(classifier.restore, classifier.classify, [test_matched, test_mismatched, test_snli], FIXED_PARAMETERS["batch_size"])
-    logger.Log("Acc on multiNLI matched dev-set: %s" %(results[0]))
-    logger.Log("Acc on multiNLI mismatched dev-set: %s" %(results[1]))
-    logger.Log("Acc on SNLI test set: %s" %(results[2]))
+    acc, results = evaluate_final(classifier.restore, classifier.classify, [test_matched, test_mismatched, test_snli], FIXED_PARAMETERS["batch_size"])
+    logger.Log("Acc on multiNLI matched dev-set: %s" %(acc[0]))
+    logger.Log("Acc on multiNLI mismatched dev-set: %s" %(acc[1]))
+    logger.Log("Acc on SNLI test set: %s" %(acc[2]))
 
     # Results by genre,
     logger.Log("Acc on matched genre dev-sets: %s" %(evaluate_classifier_genre(classifier.classify, test_matched, FIXED_PARAMETERS["batch_size"])[0]))

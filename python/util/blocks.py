@@ -61,6 +61,33 @@ def dense(x, num_labels):
     x = tf.tanh(x)
     return x
 
+def factorize_machine(X):
+    
+    p =  X.shape[2].value
+    n = X.shape[1].value
+    X = tf.reshape(X, [-1, p])
+    k = 10
+    w0 = tf.Variable(tf.zeros([1]))
+    W = tf.Variable(tf.zeros([p]))
+
+    V = tf.Variable(tf.random_normal([k, p], stddev=0.01))
+    linear_terms = tf.add(w0, tf.reduce_sum(tf.multiply(W, X), 1, keep_dims=True))
+    print(linear_terms)
+
+    pair_interactions = (tf.multiply(0.5,
+                    tf.reduce_sum(
+                        tf.subtract(
+                            tf.pow( tf.matmul(X, tf.transpose(V)), 2),
+                            tf.matmul(tf.pow(X, 2), tf.transpose(tf.pow(V, 2)))),
+                        1, keep_dims=True)))
+    print(pair_interactions)
+
+    y_hat = tf.add(linear_terms, pair_interactions)
+    y_hat = tf.reshape(y_hat, [-1, n])
+
+
+    return y_hat
+
 def last_output(output, true_length):
     """
     To get the last hidden layer form a dynamically unrolled RNN.
