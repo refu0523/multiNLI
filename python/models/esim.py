@@ -140,13 +140,16 @@ class MyModel(object):
         hyp_diff = tf.subtract(hypothesis_bi, hypothesis_attns)
         hyp_mul = tf.multiply(hypothesis_bi, hypothesis_attns)
 
+        FM_premise_attns = tf.expand_dims(blocks.factorize_machine(premise_attns), 2)
+        FM_prem_diff = tf.expand_dims(blocks.factorize_machine(prem_diff), 2)
+        FM_prem_mul = tf.expand_dims(blocks.factorize_machine(prem_mul), 2)
         
-        
+        FM_hypothesis_attns = tf.expand_dims(blocks.factorize_machine(hypothesis_attns), 2)
+        FM_hyp_diff = tf.expand_dims(blocks.factorize_machine(hyp_diff), 2)
+        FM_hyp_mul = tf.expand_dims(blocks.factorize_machine(hyp_mul), 2)
 
-        m_a = tf.concat([premise_bi, premise_attns, premise_self_attns,
-                           prem_diff, prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi,  hypothesis_attns, hypothesis_self_attns,
-                          hyp_diff, hyp_mul], 2)
+        m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul], 2)
+        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_prem_diff, FM_prem_mul], 2)
         
         
         ### Inference Composition ###
