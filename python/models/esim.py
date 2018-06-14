@@ -159,8 +159,10 @@ class MyModel(object):
         FM_hyp_diff = tf.expand_dims(blocks.factorize_machine(hyp_diff), 2)
         FM_hyp_mul = tf.expand_dims(blocks.factorize_machine(hyp_mul), 2)
 
-        m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul], 2)
+        m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul,
+                         FM_premise_self_attns, FM_prem_self_diff, FM_prem_self_mul], 2)
+        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul,
+                         FM_hypothesis_self_attns, FM_hyp_self_diff, FM_hyp_self_mul], 2)
         
         
         ### Inference Composition ###
