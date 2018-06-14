@@ -130,26 +130,37 @@ class MyModel(object):
 
 
         ### Subcomponent Inference ###
-        #prem_self_diff = tf.subtract(premise_bi, premise_self_attns)
-        #prem_self_mul = tf.multiply(premise_bi, premise_self_attns)
-        #hyp_self_diff = tf.subtract(hypothesis_bi, hypothesis_self_attns)
-        #hyp_self_mul = tf.multiply(hypothesis_bi, hypothesis_self_attns)
+        prem_self_diff = tf.subtract(premise_bi, premise_self_attns)
+        prem_self_mul = tf.multiply(premise_bi, premise_self_attns)
+        hyp_self_diff = tf.subtract(hypothesis_bi, hypothesis_self_attns)
+        hyp_self_mul = tf.multiply(hypothesis_bi, hypothesis_self_attns)
 
         prem_diff = tf.subtract(premise_bi, premise_attns)
         prem_mul = tf.multiply(premise_bi, premise_attns)
         hyp_diff = tf.subtract(hypothesis_bi, hypothesis_attns)
         hyp_mul = tf.multiply(hypothesis_bi, hypothesis_attns)
 
-        FM_premise_attns = tf.expand_dims(blocks.factorize_machine(premise_attns), 2)
+        ### Factorize Machine ###
+
+        FM_premise_self_attns = tf.expand_dims(blocks.factorize_machine(tf.concat([premise_bi ,premise_self_attns], 2)), 2)
+        FM_prem_self_diff = tf.expand_dims(blocks.factorize_machine(prem_self_diff), 2)
+        FM_prem_self_mul = tf.expand_dims(blocks.factorize_machine(prem_self_mul), 2)
+        
+        FM_hypothesis_self_attns = tf.expand_dims(blocks.factorize_machine(tf.concat([hypothesis_bi ,hypothesis_self_attns], 2)), 2)
+        FM_hyp_self_diff = tf.expand_dims(blocks.factorize_machine(hyp_self_diff), 2)
+        FM_hyp_self_mul = tf.expand_dims(blocks.factorize_machine(hyp_self_mul), 2)
+
+
+        FM_premise_attns = tf.expand_dims(blocks.factorize_machine(tf.concat([premise_bi ,premise_attns], 2)), 2)
         FM_prem_diff = tf.expand_dims(blocks.factorize_machine(prem_diff), 2)
         FM_prem_mul = tf.expand_dims(blocks.factorize_machine(prem_mul), 2)
         
-        FM_hypothesis_attns = tf.expand_dims(blocks.factorize_machine(hypothesis_attns), 2)
+        FM_hypothesis_attns = tf.expand_dims(blocks.factorize_machine(tf.concat([hypothesis_bi ,hypothesis_attns], 2)), 2)
         FM_hyp_diff = tf.expand_dims(blocks.factorize_machine(hyp_diff), 2)
         FM_hyp_mul = tf.expand_dims(blocks.factorize_machine(hyp_mul), 2)
 
         m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul], 2)
-        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_prem_diff, FM_prem_mul], 2)
+        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul], 2)
         
         
         ### Inference Composition ###
