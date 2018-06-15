@@ -110,7 +110,7 @@ class MyModel(object):
                 score_ij = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True) + 0.2*e_val
                 scores_i_list.append(score_ij)
                 r_ij = e_val
-                r_i_list.append(r_ij)
+                r_i_list.append(tf.convert_to_tensor(r_ij))
             
             scores_i = tf.stack(scores_i_list, axis=1)
             r_i = tf.stack(r_i_list, axis=1)
