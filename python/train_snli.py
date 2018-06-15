@@ -10,7 +10,7 @@ from util import logger
 import util.parameters as params
 from util.data_processing import *
 from util.evaluate import *
-
+import pprint
 FIXED_PARAMETERS = params.load_parameters()
 modname = FIXED_PARAMETERS["model_name"]
 logpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".log"
@@ -25,42 +25,52 @@ MyModel = getattr(module, 'MyModel')
 # This will help ensure nothing goes awry in reloading a model and we consistenyl use the same hyperparameter settings. 
 logger.Log("FIXED_PARAMETERS\n %s" % FIXED_PARAMETERS)
 
-######################### LOAD DATA #############################
+if FIXED_PARAMETERS["predict"]:
+    dictpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".p"
+    word_indices = pickle.load(open(dictpath, "rb"))
 
-logger.Log("Loading data")
-training_snli = load_nli_data(FIXED_PARAMETERS["training_snli"], snli=True)
-dev_snli = load_nli_data(FIXED_PARAMETERS["dev_snli"], snli=True)
-test_snli = load_nli_data(FIXED_PARAMETERS["test_snli"], snli=True)
+    prediction_sentence_to_padded_index_sequences(word_indices, FIXED_PARAMETERS["sentence_hyp"], FIXED_PARAMETERS["sentence_pre"])
 
-training_mnli = load_nli_data(FIXED_PARAMETERS["training_mnli"])
-dev_matched = load_nli_data(FIXED_PARAMETERS["dev_matched"])
-dev_mismatched = load_nli_data(FIXED_PARAMETERS["dev_mismatched"])
-test_matched = load_nli_data(FIXED_PARAMETERS["test_matched"])
-test_mismatched = load_nli_data(FIXED_PARAMETERS["test_mismatched"])
+else:
+    ######################### LOAD DATA #############################
+    logger.Log("Loading data")
+    training_snli = load_nli_data(FIXED_PARAMETERS["training_snli"], snli=True)
+    dev_snli = load_nli_data(FIXED_PARAMETERS["dev_snli"], snli=True)
+    test_snli = load_nli_data(FIXED_PARAMETERS["test_snli"], snli=True)
+
+    training_mnli = load_nli_data(FIXED_PARAMETERS["training_mnli"])
+    dev_matched = load_nli_data(FIXED_PARAMETERS["dev_matched"])
+    dev_mismatched = load_nli_data(FIXED_PARAMETERS["dev_mismatched"])
+    test_matched = load_nli_data(FIXED_PARAMETERS["test_matched"])
+    test_mismatched = load_nli_data(FIXED_PARAMETERS["test_mismatched"])
+
+    dictpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".p"
+
+    if not os.path.isfile(dictpath): 
+        logger.Log("Building dictionary")
+        word_indices = build_dictionary([training_snli])
+        logger.Log("Padding and indexifying sentences")
+        sentences_to_padded_index_sequences(word_indices, [training_snli, training_mnli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
+        pickle.dump(word_indices, open(dictpath, "wb"))
+
+    else:
+        logger.Log("Loading dictionary from %s" % (dictpath))
+        word_indices = pickle.load(open(dictpath, "rb"))
+        logger.Log("Padding and indexifying sentences")
+        sentences_to_padded_index_sequences(word_indices, [training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
+
+    
+
+
 
 if 'temp.jsonl' in FIXED_PARAMETERS["test_matched"]:
     # Removing temporary empty file that was created in parameters.py
     os.remove(FIXED_PARAMETERS["test_matched"])
-    logger.Log("Created and removed empty file called temp.jsonl since test set is not available.")
+    #logger.Log("Created and removed empty file called temp.jsonl since test set is not available.")
 
-dictpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".p"
-
-if not os.path.isfile(dictpath): 
-    logger.Log("Building dictionary")
-    word_indices = build_dictionary([training_snli])
-    logger.Log("Padding and indexifying sentences")
-    sentences_to_padded_index_sequences(word_indices, [training_snli, training_mnli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
-    pickle.dump(word_indices, open(dictpath, "wb"))
-
-else:
-    logger.Log("Loading dictionary from %s" % (dictpath))
-    word_indices = pickle.load(open(dictpath, "rb"))
-    logger.Log("Padding and indexifying sentences")
-    sentences_to_padded_index_sequences(word_indices, [training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
 
 logger.Log("Loading embeddings")
 loaded_embeddings = loadEmbedding_rand(FIXED_PARAMETERS["embedding_data_path"], word_indices)
-
 class modelClassifier:
     def __init__(self, seq_length):
         ## Define hyperparameters
@@ -94,11 +104,16 @@ class modelClassifier:
 
     def get_minibatch(self, dataset, start_index, end_index):
         indices = range(start_index, end_index)
+
         premise_vectors = np.vstack([dataset[i]['sentence1_binary_parse_index_sequence'] for i in indices])
         hypothesis_vectors = np.vstack([dataset[i]['sentence2_binary_parse_index_sequence'] for i in indices])
+
+        premise_pos_vectors = generate_pos_feature_tensor([training_snli[i]['sentence1_parse'][:] for i in indices], self.sequence_length)
+        hypothesis_pos_vectors = generate_pos_feature_tensor([training_snli[i]['sentence2_parse'][:] for i in indices], self.sequence_length)
+
         genres = [dataset[i]['genre'] for i in indices]
         labels = [dataset[i]['label'] for i in indices]
-        return premise_vectors, hypothesis_vectors, labels, genres
+        return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres
 
 
     def train(self, train_mnli, train_snli, dev_mat, dev_mismat, dev_snli):        
@@ -140,13 +155,16 @@ class modelClassifier:
             # Loop over all batches in epoch
             for i in range(total_batch):
                 # Assemble a minibatch of the next B examples
-                minibatch_premise_vectors, minibatch_hypothesis_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
+                minibatch_premise_vectors, minibatch_hypothesis_vectors, minbatch_premise_pos_vectors, \
+                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
                     training_data, self.batch_size * i, self.batch_size * (i + 1))
                 
                 # Run the optimizer to take a gradient step, and also fetch the value of the 
                 # cost function for logging
                 feed_dict = {self.model.premise_x: minibatch_premise_vectors,
                                 self.model.hypothesis_x: minibatch_hypothesis_vectors,
+                                self.model.premise_pos: minbatch_premise_pos_vectors,
+                                self.model.hypothesis_pos: minibatch_hypothesis_pos_vectors,
                                 self.model.y: minibatch_labels, 
                                 self.model.keep_rate_ph: self.keep_rate}
                 _, c = self.sess.run([self.optimizer, self.model.total_cost], feed_dict)
@@ -202,6 +220,9 @@ class modelClassifier:
         self.sess.run(self.init)
         self.saver.restore(self.sess, path)
         logger.Log("Model restored from file: %s" % path)
+    
+    def predict(self):
+        return None
 
     def classify(self, examples):
         # This classifies a list of examples
@@ -209,12 +230,15 @@ class modelClassifier:
         logits = np.empty(3)
         genres = []
         for i in range(total_batch):
-            minibatch_premise_vectors, minibatch_hypothesis_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
-                examples, self.batch_size * i, self.batch_size * (i + 1))
-            feed_dict = {self.model.premise_x: minibatch_premise_vectors, 
-                                self.model.hypothesis_x: minibatch_hypothesis_vectors,
-                                self.model.y: minibatch_labels, 
-                                self.model.keep_rate_ph: 1.0}
+            minibatch_premise_vectors, minibatch_hypothesis_vectors, minbatch_premise_pos_vectors, \
+                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
+                    training_data, self.batch_size * i, self.batch_size * (i + 1))
+            feed_dict = {self.model.premise_x: minibatch_premise_vectors,
+                            self.model.hypothesis_x: minibatch_hypothesis_vectors,
+                            self.model.premise_pos: minbatch_premise_pos_vectors,
+                            self.model.hypothesis_pos: minibatch_hypothesis_pos_vectors,
+                            self.model.y: minibatch_labels, 
+                            self.model.keep_rate_ph: self.keep_rate}
             genres += minibatch_genres
             logit, cost = self.sess.run([self.model.logits, self.model.total_cost], feed_dict)
             logits = np.vstack([logits, logit])

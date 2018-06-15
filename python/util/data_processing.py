@@ -17,6 +17,8 @@ LABEL_MAP = {
 
 PADDING = "<PAD>"
 UNKNOWN = "<UNK>"
+POS_Tagging = [PADDING, 'WP$', 'RBS', 'SYM', 'WRB', 'IN', 'VB', 'POS', 'TO', ':', '-RRB-', '$', 'MD', 'JJ', '#', 'CD', '``', 'JJR', 'NNP', "''", 'LS', 'VBP', 'VBD', 'FW', 'RBR', 'JJS', 'DT', 'VBG', 'RP', 'NNS', 'RB', 'PDT', 'PRP$', '.', 'XX', 'NNPS', 'UH', 'EX', 'NN', 'WDT', 'VBN', 'VBZ', 'CC', ',', '-LRB-', 'PRP', 'WP']
+POS_dict = {pos:i for i, pos in enumerate(POS_Tagging)}
 
 def load_nli_data(path, snli=False):
     """
@@ -102,6 +104,8 @@ def sentences_to_padded_index_sequences(word_indices, datasets):
                             index = word_indices[UNKNOWN]
                     example[sentence + '_index_sequence'][i] = index
 
+def prediction_sentence_to_padded_index_sequences(word_indices, hypothesis, premise):
+    return None
 
 def loadEmbedding_zeros(path, word_indices):
     """
@@ -151,3 +155,19 @@ def loadEmbedding_rand(path, word_indices):
 
     return emb
 
+def parsing_parse(parse):
+    base_parse = [s.rstrip(" ").rstrip(")") for s in parse.split("(") if ")" in s]
+    pos = [pair.split(" ")[0] for pair in base_parse]
+    return pos
+
+def generate_pos_feature_tensor(parses, seq_length):
+    pos_vectors = []
+    for parse in parses:
+        pos = parsing_parse(parse)
+        pos_vector = np.zeros((seq_length, len(POS_dict)))
+        for idx, tag in enumerate(pos):
+            if idx >= seq_length:
+                break
+            pos_vector[idx ,POS_dict.get(tag, 0)] = 1
+        pos_vectors.append(pos_vector)
+    return np.stack(pos_vectors, axis=0)

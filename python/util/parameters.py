@@ -46,6 +46,9 @@ parser.add_argument("--genre", type=str, help="Which genre to train on")
 parser.add_argument("--alpha", type=float, default=0., help="What percentage of SNLI data to use in training")
 
 parser.add_argument("--test", action='store_true', help="Call if you want to only test on the best checkpoint.")
+parser.add_argument("--predict", action='store_true', help="Call if you want to predict on the best checkpoint.")
+parser.add_argument("--sentence_hyp", type=str, default='Hi.', help="Call if you want to predict with this hypothesis.")
+parser.add_argument("--sentence_pre", type=str, default='hello.', help="Call if you want to predict  with this premise.")
 
 args = parser.parse_args()
 
@@ -92,7 +95,10 @@ def load_parameters():
         "learning_rate": args.learning_rate,
         "emb_train": args.emb_train,
         "alpha": args.alpha,
-        "genre": args.genre
+        "genre": args.genre,
+        "predict": args.predict,
+        "sentence_hyp": args.sentence_hyp,
+        "sentence_pre": args.sentence_pre
     }
 
     return FIXED_PARAMETERS

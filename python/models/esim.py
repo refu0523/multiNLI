@@ -14,6 +14,8 @@ class MyModel(object):
         ## Define the placeholders
         self.premise_x = tf.placeholder(tf.int32, [None, self.sequence_length])
         self.hypothesis_x = tf.placeholder(tf.int32, [None, self.sequence_length])
+        self.premise_pos = tf.placeholder(tf.int32, [None, self.sequence_length, 47], name='premise_pos')
+        self.hypothesis_pos = tf.placeholder(tf.int32, [None, self.sequence_length, 47], name='hypothesis_pos')
         self.y = tf.placeholder(tf.int32, [None])
         self.keep_rate_ph = tf.placeholder(tf.float32, [])
 
@@ -39,8 +41,9 @@ class MyModel(object):
 
         ### First biLSTM layer ###
 
-        premise_in = emb_drop(self.premise_x)
-        hypothesis_in = emb_drop(self.hypothesis_x)
+        premise_in = tf.concat([emb_drop(self.premise_x), tf.cast(self.premise_pos, tf.float32)], axis=2)
+        hypothesis_in =  tf.concat([emb_drop(self.hypothesis_x), tf.cast(self.hypothesis_pos, tf.float32)], axis=2)
+
 
         premise_outs, c1 = blocks.biLSTM(premise_in, dim=self.dim, seq_len=prem_seq_lengths, name='premise')
         hypothesis_outs, c2 = blocks.biLSTM(hypothesis_in, dim=self.dim, seq_len=hyp_seq_lengths, name='hypothesis')

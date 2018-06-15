@@ -72,7 +72,6 @@ def factorize_machine(X):
 
     V = tf.Variable(tf.random_normal([k, p], stddev=0.01))
     linear_terms = tf.add(w0, tf.reduce_sum(tf.multiply(W, X), 1, keep_dims=True))
-    print(linear_terms)
 
     pair_interactions = (tf.multiply(0.5,
                     tf.reduce_sum(
@@ -80,7 +79,6 @@ def factorize_machine(X):
                             tf.pow( tf.matmul(X, tf.transpose(V)), 2),
                             tf.matmul(tf.pow(X, 2), tf.transpose(tf.pow(V, 2)))),
                         1, keep_dims=True)))
-    print(pair_interactions)
 
     y_hat = tf.add(linear_terms, pair_interactions)
     y_hat = tf.reshape(y_hat, [-1, n])
