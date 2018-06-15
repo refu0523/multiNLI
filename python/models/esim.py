@@ -5,7 +5,7 @@ from operator import mul
 
 
 class MyModel(object):
-    def __init__(self, seq_length, emb_dim, hidden_dim, embeddings, emb_train):
+    def __init__(self, seq_length, emb_dim, hidden_dim, embeddings, emb_train, exterKnowledge_dic):
         ## Define hyperparameters
         self.embedding_dim = emb_dim
         self.dim = hidden_dim
@@ -27,6 +27,9 @@ class MyModel(object):
 
         self.W_cl = tf.Variable(tf.random_normal([self.dim, 3], stddev=0.1))
         self.b_cl = tf.Variable(tf.random_normal([3], stddev=0.1))
+
+        ## Define External Knowledge dictionary para.
+        self.exterKnowledge_dic = exterKnowledge_dic
         
         ## Function for embedding lookup and dropout at embedding layer
         def emb_drop(x):
@@ -92,36 +95,60 @@ class MyModel(object):
         scores_all = []
         premise_attn = []
         alphas = []
+        r_alpha = []
+        r_all = []
 
         for i in range(self.sequence_length):
-
             scores_i_list = []
+            r_i_list = []
             for j in range(self.sequence_length):
                 #caculate similarity score_ij (e_ij)
-                score_ij = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True)
+                if (premise_list[i],hypothesis_list[j]) not in exterKnowledge_dic:
+                    e_val = 0
+                else: 
+                    e_val = exterKnowledge_dic[(premise_list[i],hypothesis_list[j])]
+                score_ij = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True) + 0.2*e_val
                 scores_i_list.append(score_ij)
+                r_ij = e_val
+                r_i_list.append(r_ij)
             
             scores_i = tf.stack(scores_i_list, axis=1)
+            r_i = tf.stack(r_i_list, axis=1)
             #alpha_i: weigth of hypothesis_bi
             alpha_i = blocks.masked_softmax(scores_i, mask_hyp)
             a_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, hypothesis_bi), 1)
             premise_attn.append(a_tilde_i)
+
+            r_alpha_i = tf.reduce_sum(tf.multiply(r_i,alpha_i), 1)
             
             scores_all.append(scores_i)
             alphas.append(alpha_i)
+            r_alpha.append(r_alpha_i)
+            r_all.append(r_i)
 
         scores_stack = tf.stack(scores_all, axis=2)
-        scores_list = tf.unstack(scores_stack, axis=1)
+        scores_list = tf.unstack(scores_stack, axis=1) #turn i index to j index
+
+        r_stack = tf.stack(r_all, axis=2)
+        r_list = tf.unstack(r_stack, axis=1) #turn i index to j index
 
         hypothesis_attn = []
         betas = []
+        r_beta = []
         for j in range(self.sequence_length):
             scores_j = scores_list[j]
             beta_j = blocks.masked_softmax(scores_j, mask_prem)
             b_tilde_j = tf.reduce_sum(tf.multiply(beta_j, premise_bi), 1)
             hypothesis_attn.append(b_tilde_j)
 
+            r_j = r_list[j]
+            r_beta_j = tf.reduce_sum(tf.multiply(r_j,beta_j), 1)
+            r_beta.append(r_beta_i)
+
             betas.append(beta_j)
+        # Make r_alpha and r_beta in tensor
+        r_alphas = tf.stack(r_alpha, axis=1)
+        r_betas = tf.stack(r_beta, axis=1)
 
         # Make attention-weighted sentence representations into one tensor,
         premise_attns = tf.stack(premise_attn, axis=1)
@@ -163,9 +190,9 @@ class MyModel(object):
         FM_hyp_mul = tf.expand_dims(blocks.factorize_machine(hyp_mul), 2)
 
         m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul,
-                         FM_premise_self_attns, FM_prem_self_diff, FM_prem_self_mul], 2)
+                         FM_premise_self_attns, FM_prem_self_diff, FM_prem_self_mul, r_alphas], 2)
         m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul,
-                         FM_hypothesis_self_attns, FM_hyp_self_diff, FM_hyp_self_mul], 2)
+                         FM_hypothesis_self_attns, FM_hyp_self_diff, FM_hyp_self_mul, r_betas], 2)
         
         
         ### Inference Composition ###

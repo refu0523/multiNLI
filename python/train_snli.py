@@ -11,6 +11,8 @@ import util.parameters as params
 from util.data_processing import *
 from util.evaluate import *
 import pprint
+import pickle
+
 FIXED_PARAMETERS = params.load_parameters()
 modname = FIXED_PARAMETERS["model_name"]
 logpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".log"
@@ -20,6 +22,10 @@ model = FIXED_PARAMETERS["model_type"]
 
 module = importlib.import_module(".".join(['models', model])) 
 MyModel = getattr(module, 'MyModel')
+
+## load external_knowledge_dict
+f_name = './snli_trainAll_realtionship_feat_word2index.pkl'
+extknow_dic = pickle.load(open(f_name,'rb'))
 
 # Logging parameter settings at each launch of training script
 # This will help ensure nothing goes awry in reloading a model and we consistenyl use the same hyperparameter settings. 
@@ -58,7 +64,6 @@ else:
         word_indices = pickle.load(open(dictpath, "rb"))
         logger.Log("Padding and indexifying sentences")
         sentences_to_padded_index_sequences(word_indices, [training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
-
     
 
 
@@ -87,7 +92,7 @@ class modelClassifier:
 
         logger.Log("Building model from %s.py" %(model))
         self.model = MyModel(seq_length=self.sequence_length, emb_dim=self.embedding_dim,
-        					 hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train)
+        					 hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train, exterKnowledge_dic=extknow_dic)
 
         # Perform gradient descent with Adam
         self.optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.9, beta2=0.999).minimize(self.model.total_cost)
