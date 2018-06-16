@@ -56,9 +56,9 @@ def LSTM(inputs, dim, seq_len, name):
 
     return hidden_states, cell_states
 
-def dense(x, num_labels):
+def dense(x, num_labels, activation=tf.relu):
     x = tf.layers.dense(x, num_labels, kernel_regularizer=tf.contrib.layers.l2_regularizer(0.0001))
-    x = tf.tanh(x)
+    x = activation(x)
     return x
 
 def factorize_machine(X):

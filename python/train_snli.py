@@ -289,10 +289,7 @@ class modelClassifier:
 
 classifier = modelClassifier(FIXED_PARAMETERS["seq_length"])
 
-"""
-Either train the model and then run it on the test-sets or 
-load the best checkpoint and get accuracy on the test set. Default setting is to train the model.
-"""
+
 if FIXED_PARAMETERS["predict"]:
     classifier.restore(best=True)
     y_hat = classifier.predict(premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesise_predict_pos_vectors)
