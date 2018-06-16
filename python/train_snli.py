@@ -109,10 +109,10 @@ class modelClassifier:
         self.sess = None
         self.saver = tf.train.Saver()
 
-    def get_R_mat(self, premise_vectors, hypothesis_vectors):
+    def get_R_mat(self, premise_vectors, hypothesis_vectors, bt_size):
         ## generate Rij matrix
-        R_ = np.zeros((self.batch_size, self.sequence_length, self.sequence_length))
-        for i in range(self.batch_size):
+        R_ = np.zeros((bt_size, self.sequence_length, self.sequence_length))
+        for i in range(bt_size):
             for j, ele_pre in enumerate(premise_vectors[i, :]):
                 for k, ele_hyp in enumerate(hypothesis_vectors[i, :]):
 #                    pdb.set_trace()
@@ -134,7 +134,7 @@ class modelClassifier:
         genres = [dataset[i]['genre'] for i in indices]
         labels = [dataset[i]['label'] for i in indices]
 
-        R_mat = self.get_R_mat(premise_vectors, hypothesis_vectors)
+        R_mat = self.get_R_mat(premise_vectors, hypothesis_vectors, self.batch_size)
         
 
         return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres, R_mat
@@ -246,17 +246,18 @@ class modelClassifier:
         self.saver.restore(self.sess, path)
         logger.Log("Model restored from file: %s" % path)
     
-    def predict(self, premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesise_predict_pos_vectors):
+    def predict(self, premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesis_predict_pos_vectors):
         logits = np.empty(3)
         premise_predict_vectors = np.expand_dims(premise_predict_vectors, axis=0)
         hypothesis_predict_vectors = np.expand_dims(hypothesis_predict_vectors, axis=0)
         premise_predict_pos_vectors = np.expand_dims(premise_predict_pos_vectors, axis=0)
-        hypothesise_predict_pos_vectors = np.expand_dims(hypothesise_predict_pos_vectors, axis=0)
+        hypothesis_predict_pos_vectors = np.expand_dims(hypothesis_predict_pos_vectors, axis=0)
+        R_mat = self.get_R_mat(premise_predict_vectors, hypothesis_predict_vectors, 1)
         feed_dict = {self.model.premise_x: premise_predict_vectors,
                             self.model.hypothesis_x: hypothesis_predict_vectors,
                             self.model.premise_pos: premise_predict_pos_vectors,
-                            self.model.hypothesis_pos: hypothesise_predict_pos_vectors,
-                            self.model.y: 0, 
+                            self.model.hypothesis_pos: hypothesis_predict_pos_vectors,
+                            self.model.y: np.zeros(1,),
                             self.model.keep_rate_ph: self.keep_rate,
                             self.model.R_mat: R_mat}
         logit = self.sess.run([self.model.logits], feed_dict)
@@ -292,7 +293,8 @@ classifier = modelClassifier(FIXED_PARAMETERS["seq_length"])
 
 if FIXED_PARAMETERS["predict"]:
     classifier.restore(best=True)
-    y_hat = classifier.predict(premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesise_predict_pos_vectors)
+    y_hat = classifier.predict(premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesis_predict_pos_vectors)
+    print(y_hat)
 else:   
     test = params.train_or_test()
 

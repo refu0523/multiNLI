@@ -183,7 +183,7 @@ def generate_pos_feature_tensor(parses, seq_length):
     pos_vectors = []
     for parse in parses:
         pos = parsing_parse(parse)
-        pos_vector = np.zeros((seq_length, len(POS_dict)))
+        pos_vector = np.zeros((FIXED_PARAMETERS["seq_length"], len(POS_dict)))
         for idx, tag in enumerate(pos):
             if idx >= seq_length:
                 break
@@ -194,10 +194,10 @@ def generate_pos_feature_tensor(parses, seq_length):
 def get_pos_vector(sentence):
     text = word_tokenize(sentence)
     _, tags = zip(*nltk.pos_tag(text))
-    pos_vector = np.zeros((len(POS_dict)))
+    pos_vector = np.zeros((FIXED_PARAMETERS["seq_length"], len(POS_dict)))
     for idx, tag in enumerate(tags):
         if idx >= FIXED_PARAMETERS["seq_length"]:
             break
         else:
-            pos_vector[POS_dict.get(tag, 0)] = 1  
+            pos_vector[idx ,POS_dict.get(tag, 0)] = 1  
     return pos_vector
