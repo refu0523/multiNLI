@@ -23,7 +23,7 @@ class MyModel(object):
         ## Define parameters
         self.E = tf.Variable(embeddings, trainable=emb_train)
         
-        self.W_mlp = tf.Variable(tf.random_normal([self.dim * 8, self.dim], stddev=0.1))
+        self.W_mlp = tf.Variable(tf.random_normal([self.dim * 12, self.dim], stddev=0.1))
         self.b_mlp = tf.Variable(tf.random_normal([self.dim], stddev=0.1))
 
         self.W_cl = tf.Variable(tf.random_normal([self.dim, 3], stddev=0.1))
@@ -121,7 +121,7 @@ class MyModel(object):
             a_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, hypothesis_bi), 1)
             premise_attn.append(a_tilde_i)
 
-            r_alpha_i = tf.reduce_sum(tf.multiply(r_i,alpha_i), 1)
+            r_alpha_i = tf.reduce_sum(tf.multiply(r_i, alpha_i), 1)
             
             scores_all.append(scores_i)
             alphas.append(alpha_i)
@@ -144,7 +144,7 @@ class MyModel(object):
             hypothesis_attn.append(b_tilde_j)
 
             r_j = r_list[j]
-            r_beta_j = tf.reduce_sum(tf.multiply(r_j,beta_j), 1)
+            r_beta_j = tf.reduce_sum(tf.multiply(r_j, beta_j), 1)
             r_beta.append(r_beta_j)
 
             betas.append(beta_j)
@@ -217,7 +217,14 @@ class MyModel(object):
         v_1_max = tf.reduce_max(v1_bi, 1)
         v_2_max = tf.reduce_max(v2_bi, 1)
 
-        v = tf.concat([v_1_ave, v_2_ave, v_1_max, v_2_max], 1)
+        
+        alpha_w = blocks.masked_softmax(blocks.dense(r_alphas, 1), mask_prem)
+        a_w = tf.reduce_sum(tf.multiply(alpha_w, v1_bi), 1)
+
+        beta_w = blocks.masked_softmax(blocks.dense(r_betas, 1), mask_hyp)
+        b_w = tf.reduce_sum(tf.multiply(beta_w, v2_bi), 1)
+
+        v = tf.concat([v_1_ave, v_2_ave, v_1_max, v_2_max, a_w, b_w], 1)
         
 
         # MLP layer
