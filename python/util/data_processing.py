@@ -2,9 +2,11 @@ import numpy as np
 import re
 import random
 import json
+import nltk
 import collections
 import util.parameters as params
 import pickle
+from nltk import word_tokenize
 
 FIXED_PARAMETERS = params.load_parameters()
 
@@ -104,7 +106,24 @@ def sentences_to_padded_index_sequences(word_indices, datasets):
                             index = word_indices[UNKNOWN]
                     example[sentence + '_index_sequence'][i] = index
 
-def prediction_sentence_to_padded_index_sequences(word_indices, hypothesis, premise):
+def prediction_sentence_to_padded_index_sequences(word_indices, sentences):
+    sentences_list = []
+    for sentence in sentences:
+        sentence_vec = np.zeros((FIXED_PARAMETERS["seq_length"]), dtype=np.int32)
+        token_sequence = tokenize(sentence)
+        padding = FIXED_PARAMETERS["seq_length"] - len(token_sequence)
+        for i in range(FIXED_PARAMETERS["seq_length"]):
+            if i >= len(token_sequence):
+                index = word_indices[PADDING]
+            else:
+                if token_sequence[i] in word_indices:
+                    index = word_indices[token_sequence[i]]
+                else:
+                    index = word_indices[UNKNOWN]
+            sentence_vec[i] = index
+        sentences_list.append(sentence_vec)
+    return sentences_list
+
     return None
 
 def loadEmbedding_zeros(path, word_indices):
@@ -171,3 +190,14 @@ def generate_pos_feature_tensor(parses, seq_length):
             pos_vector[idx ,POS_dict.get(tag, 0)] = 1
         pos_vectors.append(pos_vector)
     return np.stack(pos_vectors, axis=0)
+
+def get_pos_vector(sentence):
+    text = word_tokenize(sentence)
+    _, tags = zip(*nltk.pos_tag(text))
+    pos_vector = np.zeros((len(POS_dict)))
+    for idx, tag in enumerate(tags):
+        if idx >= FIXED_PARAMETERS["seq_length"]:
+            break
+        else:
+            pos_vector[POS_dict.get(tag, 0)] = 1  
+    return pos_vector

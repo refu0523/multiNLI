@@ -13,7 +13,6 @@ from util.evaluate import *
 import pprint
 import pickle
 import pdb
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
 FIXED_PARAMETERS = params.load_parameters()
 modname = FIXED_PARAMETERS["model_name"]
 logpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".log"
@@ -36,7 +35,10 @@ if FIXED_PARAMETERS["predict"]:
     dictpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".p"
     word_indices = pickle.load(open(dictpath, "rb"))
 
-    prediction_sentence_to_padded_index_sequences(word_indices, FIXED_PARAMETERS["sentence_hyp"], FIXED_PARAMETERS["sentence_pre"])
+    premise_predict_vectors, hypothesis_predict_vectors = prediction_sentence_to_padded_index_sequences(word_indices, 
+        [FIXED_PARAMETERS["sentence_pre"], FIXED_PARAMETERS["sentence_hyp"]])
+    premise_predict_pos_vectors = get_pos_vector(FIXED_PARAMETERS["sentence_pre"])
+    hypothesis_predict_pos_vectors = get_pos_vector(FIXED_PARAMETERS["sentence_hyp"])
 
 else:
     ######################### LOAD DATA #############################
@@ -107,6 +109,18 @@ class modelClassifier:
         self.sess = None
         self.saver = tf.train.Saver()
 
+    def get_R_mat(self, premise_vectors, hypothesis_vectors):
+        ## generate Rij matrix
+        R_ = np.zeros((self.batch_size, self.sequence_length, self.sequence_length))
+        for i in range(self.batch_size):
+            for j, ele_pre in enumerate(premise_vectors[i, :]):
+                for k, ele_hyp in enumerate(hypothesis_vectors[i, :]):
+#                    pdb.set_trace()
+                    if (ele_pre,ele_hyp) not in extknow_dic:
+                        R_[i, j, k] = 0
+                    else: 
+                        R_[i, j, k] = extknow_dic[(ele_pre, ele_hyp)]
+        return R_
 
     def get_minibatch(self, dataset, start_index, end_index):
         indices = range(start_index, end_index)
@@ -120,18 +134,10 @@ class modelClassifier:
         genres = [dataset[i]['genre'] for i in indices]
         labels = [dataset[i]['label'] for i in indices]
 
-        ## generate Rij matrix
-        R_ = np.zeros((self.batch_size, self.sequence_length, self.sequence_length))
-        for _ in range(self.batch_size):
-            for i, ele_pre in enumerate(premise_vectors[_,:]):
-                for j, ele_hyp in enumerate(hypothesis_vectors[_,:]):
-#                    pdb.set_trace()
-                    if (ele_pre,ele_hyp) not in extknow_dic:
-                        R_[_,i,j] = 0
-                    else: 
-                        R_[_,i,j] = extknow_dic[(ele_pre,ele_hyp)]
+        R_mat = self.get_R_mat(premise_vectors, hypothesis_vectors)
+        
 
-        return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres, R_
+        return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres, R_mat
 
 
     def train(self, train_mnli, train_snli, dev_mat, dev_mismat, dev_snli):        
@@ -240,8 +246,23 @@ class modelClassifier:
         self.saver.restore(self.sess, path)
         logger.Log("Model restored from file: %s" % path)
     
-    def predict(self):
-        return None
+    def predict(self, premise_predict_vectors, hypothesis_predict_vectors, premise_predict_pos_vectors, hypothesise_predict_pos_vectors):
+        logits = np.empty(3)
+        premise_predict_vectors = np.expand_dims(premise_predict_vectors, axis=0)
+        hypothesis_predict_vectors = np.expand_dims(hypothesis_predict_vectors, axis=0)
+        premise_predict_pos_vectors = np.expand_dims(premise_predict_pos_vectors, axis=0)
+        hypothesise_predict_pos_vectors = np.expand_dims(hypothesise_predict_pos_vectors, axis=0)
+        feed_dict = {self.model.premise_x: premise_predict_vectors,
+                            self.model.hypothesis_x: hypothesis_predict_vectors,
+                            self.model.premise_pos: premise_predict_pos_vectors,
+                            self.model.hypothesis_pos: hypothesise_predict_pos_vectors,
+                            self.model.y: 0, 
+                            self.model.keep_rate_ph: self.keep_rate,
+                            self.model.R_mat: R_mat}
+        logit = self.sess.run([self.model.logits], feed_dict)
+        y_hat = np.argmax(logits)
+
+        return y_hat
 
     def classify(self, examples):
         # This classifies a list of examples
@@ -272,26 +293,28 @@ classifier = modelClassifier(FIXED_PARAMETERS["seq_length"])
 Either train the model and then run it on the test-sets or 
 load the best checkpoint and get accuracy on the test set. Default setting is to train the model.
 """
+if FIXED_PARAMETERS["predict"]:
+    y_hat = classifier.predict()
+else:   
+    test = params.train_or_test()
 
-test = params.train_or_test()
-
-# While test-set isn't released, use dev-sets for testing
-test_matched = dev_matched
-test_mismatched = dev_mismatched
+    # While test-set isn't released, use dev-sets for testing
+    test_matched = dev_matched
+    test_mismatched = dev_mismatched
 
 
-if test == False:
-    classifier.train(training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli)
-    logger.Log("Acc on matched multiNLI dev-set: %s" %(evaluate_classifier(classifier.classify, test_matched, FIXED_PARAMETERS["batch_size"]))[0])
-    logger.Log("Acc on mismatched multiNLI dev-set: %s" %(evaluate_classifier(classifier.classify, test_mismatched, FIXED_PARAMETERS["batch_size"]))[0])
-    logger.Log("Acc on SNLI test-set: %s" %(evaluate_classifier(classifier.classify, test_snli, FIXED_PARAMETERS["batch_size"]))[0])
-else: 
-    acc, results = evaluate_final(classifier.restore, classifier.classify, [test_matched, test_mismatched, test_snli], FIXED_PARAMETERS["batch_size"])
-    logger.Log("Acc on multiNLI matched dev-set: %s" %(acc[0]))
-    logger.Log("Acc on multiNLI mismatched dev-set: %s" %(acc[1]))
-    logger.Log("Acc on SNLI test set: %s" %(acc[2]))
+    if test == False:
+        classifier.train(training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli)
+        logger.Log("Acc on matched multiNLI dev-set: %s" %(evaluate_classifier(classifier.classify, test_matched, FIXED_PARAMETERS["batch_size"]))[0])
+        logger.Log("Acc on mismatched multiNLI dev-set: %s" %(evaluate_classifier(classifier.classify, test_mismatched, FIXED_PARAMETERS["batch_size"]))[0])
+        logger.Log("Acc on SNLI test-set: %s" %(evaluate_classifier(classifier.classify, test_snli, FIXED_PARAMETERS["batch_size"]))[0])
+    else: 
+        acc, results = evaluate_final(classifier.restore, classifier.classify, [test_matched, test_mismatched, test_snli], FIXED_PARAMETERS["batch_size"])
+        logger.Log("Acc on multiNLI matched dev-set: %s" %(acc[0]))
+        logger.Log("Acc on multiNLI mismatched dev-set: %s" %(acc[1]))
+        logger.Log("Acc on SNLI test set: %s" %(acc[2]))
 
-    # Results by genre,
-    logger.Log("Acc on matched genre dev-sets: %s" %(evaluate_classifier_genre(classifier.classify, test_matched, FIXED_PARAMETERS["batch_size"])[0]))
-    logger.Log("Acc on mismatched genres dev-sets: %s" %(evaluate_classifier_genre(classifier.classify, test_mismatched, FIXED_PARAMETERS["batch_size"])[0]))
-  
+        # Results by genre,
+        logger.Log("Acc on matched genre dev-sets: %s" %(evaluate_classifier_genre(classifier.classify, test_matched, FIXED_PARAMETERS["batch_size"])[0]))
+        logger.Log("Acc on mismatched genres dev-sets: %s" %(evaluate_classifier_genre(classifier.classify, test_mismatched, FIXED_PARAMETERS["batch_size"])[0]))
+      
