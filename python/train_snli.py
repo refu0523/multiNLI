@@ -12,7 +12,8 @@ from util.data_processing import *
 from util.evaluate import *
 import pprint
 import pickle
-
+import pdb
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 FIXED_PARAMETERS = params.load_parameters()
 modname = FIXED_PARAMETERS["model_name"]
 logpath = os.path.join(FIXED_PARAMETERS["log_path"], modname) + ".log"
@@ -92,7 +93,7 @@ class modelClassifier:
 
         logger.Log("Building model from %s.py" %(model))
         self.model = MyModel(seq_length=self.sequence_length, emb_dim=self.embedding_dim,
-        					 hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train, exterKnowledge_dic=extknow_dic)
+        					 hidden_dim=self.dim, embeddings=loaded_embeddings, emb_train=self.emb_train)
 
         # Perform gradient descent with Adam
         self.optimizer = tf.train.AdamOptimizer(self.learning_rate, beta1=0.9, beta2=0.999).minimize(self.model.total_cost)
@@ -118,7 +119,19 @@ class modelClassifier:
 
         genres = [dataset[i]['genre'] for i in indices]
         labels = [dataset[i]['label'] for i in indices]
-        return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres
+
+        ## generate Rij matrix
+        R_ = np.zeros((self.batch_size, self.sequence_length, self.sequence_length))
+        for _ in range(self.batch_size):
+            for i, ele_pre in enumerate(premise_vectors[_,:]):
+                for j, ele_hyp in enumerate(hypothesis_vectors[_,:]):
+#                    pdb.set_trace()
+                    if (ele_pre,ele_hyp) not in extknow_dic:
+                        R_[_,i,j] = 0
+                    else: 
+                        R_[_,i,j] = extknow_dic[(ele_pre,ele_hyp)]
+
+        return premise_vectors, hypothesis_vectors, premise_pos_vectors, hypothesis_pos_vectors, labels, genres, R_
 
 
     def train(self, train_mnli, train_snli, dev_mat, dev_mismat, dev_snli):        
@@ -161,7 +174,7 @@ class modelClassifier:
             for i in range(total_batch):
                 # Assemble a minibatch of the next B examples
                 minibatch_premise_vectors, minibatch_hypothesis_vectors, minbatch_premise_pos_vectors, \
-                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
+                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres, R_mat = self.get_minibatch(
                     training_data, self.batch_size * i, self.batch_size * (i + 1))
                 
                 # Run the optimizer to take a gradient step, and also fetch the value of the 
@@ -171,7 +184,8 @@ class modelClassifier:
                                 self.model.premise_pos: minbatch_premise_pos_vectors,
                                 self.model.hypothesis_pos: minibatch_hypothesis_pos_vectors,
                                 self.model.y: minibatch_labels, 
-                                self.model.keep_rate_ph: self.keep_rate}
+                                self.model.keep_rate_ph: self.keep_rate,
+                                self.model.R_mat: R_mat}
                 _, c = self.sess.run([self.optimizer, self.model.total_cost], feed_dict)
 
                 # Since a single epoch can take a  ages for larger models (ESIM),
@@ -236,14 +250,15 @@ class modelClassifier:
         genres = []
         for i in range(total_batch):
             minibatch_premise_vectors, minibatch_hypothesis_vectors, minbatch_premise_pos_vectors, \
-                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres = self.get_minibatch(
-                    training_data, self.batch_size * i, self.batch_size * (i + 1))
+                minibatch_hypothesis_pos_vectors, minibatch_labels, minibatch_genres, R_mat = self.get_minibatch(
+                    examples, self.batch_size * i, self.batch_size * (i + 1))
             feed_dict = {self.model.premise_x: minibatch_premise_vectors,
                             self.model.hypothesis_x: minibatch_hypothesis_vectors,
                             self.model.premise_pos: minbatch_premise_pos_vectors,
                             self.model.hypothesis_pos: minibatch_hypothesis_pos_vectors,
                             self.model.y: minibatch_labels, 
-                            self.model.keep_rate_ph: self.keep_rate}
+                            self.model.keep_rate_ph: self.keep_rate,
+                            self.model.R_mat: R_mat}
             genres += minibatch_genres
             logit, cost = self.sess.run([self.model.logits, self.model.total_cost], feed_dict)
             logits = np.vstack([logits, logit])

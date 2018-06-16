@@ -2,10 +2,11 @@ import tensorflow as tf
 from util import blocks
 from functools import reduce
 from operator import mul
+import pdb
 
 
 class MyModel(object):
-    def __init__(self, seq_length, emb_dim, hidden_dim, embeddings, emb_train, exterKnowledge_dic):
+    def __init__(self, seq_length, emb_dim, hidden_dim, embeddings, emb_train):
         ## Define hyperparameters
         self.embedding_dim = emb_dim
         self.dim = hidden_dim
@@ -28,8 +29,10 @@ class MyModel(object):
         self.W_cl = tf.Variable(tf.random_normal([self.dim, 3], stddev=0.1))
         self.b_cl = tf.Variable(tf.random_normal([3], stddev=0.1))
 
-        ## Define External Knowledge dictionary para.
-        self.exterKnowledge_dic = exterKnowledge_dic
+        # ## Define External Knowledge dictionary para.
+        # self.exterKnowledge_dic = exterKnowledge_dic
+        ## Define R_matrix
+        self.R_mat = tf.placeholder(tf.float32, [None, self.sequence_length,self.sequence_length])
         
         ## Function for embedding lookup and dropout at embedding layer
         def emb_drop(x):
@@ -103,17 +106,16 @@ class MyModel(object):
             r_i_list = []
             for j in range(self.sequence_length):
                 #caculate similarity score_ij (e_ij)
-                if (premise_list[i],hypothesis_list[j]) not in exterKnowledge_dic:
-                    e_val = 0
-                else: 
-                    e_val = exterKnowledge_dic[(premise_list[i],hypothesis_list[j])]
-                score_ij = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True) + 0.2*e_val
+
+                score_ij_ori = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True)
+                ext_r = tf.expand_dims(self.R_mat[:,i,j],axis=1)
+                score_ij = score_ij_ori + ext_r
                 scores_i_list.append(score_ij)
-                r_ij = e_val
-                r_i_list.append(tf.convert_to_tensor(r_ij))
-            
+                r_ij = self.R_mat[:,i,j]
+                r_i_list.append(r_ij)
+                #pdb.set_trace()             
             scores_i = tf.stack(scores_i_list, axis=1)
-            r_i = tf.stack(r_i_list, axis=1)
+            r_i = tf.expand_dims(tf.stack(r_i_list, axis=1), 2)
             #alpha_i: weigth of hypothesis_bi
             alpha_i = blocks.masked_softmax(scores_i, mask_hyp)
             a_tilde_i = tf.reduce_sum(tf.multiply(alpha_i, hypothesis_bi), 1)
@@ -143,7 +145,7 @@ class MyModel(object):
 
             r_j = r_list[j]
             r_beta_j = tf.reduce_sum(tf.multiply(r_j,beta_j), 1)
-            r_beta.append(r_beta_i)
+            r_beta.append(r_beta_j)
 
             betas.append(beta_j)
         # Make r_alpha and r_beta in tensor
