@@ -33,8 +33,8 @@ parser.add_argument("model_type", choices=models, type=types, help="Give model t
 parser.add_argument("model_name", type=str, help="Give model name, this will name logs and checkpoints made. For example cbow, esim_test etc.")
 
 parser.add_argument("--datapath", type=str, default="../data")
-parser.add_argument("--ckptpath", type=str, default="../logs_addpooling")
-parser.add_argument("--logpath", type=str, default="../logs_addpooling")
+parser.add_argument("--ckptpath", type=str, default="../logs")
+parser.add_argument("--logpath", type=str, default="../logs")
 
 parser.add_argument("--emb_to_load", type=int, default=None, help="Number of embeddings to load. If None, all embeddings are loaded.")
 parser.add_argument("--learning_rate", type=float, default=0.0004, help="Learning rate for model")
@@ -46,6 +46,7 @@ parser.add_argument("--genre", type=str, help="Which genre to train on")
 parser.add_argument("--alpha", type=float, default=0., help="What percentage of SNLI data to use in training")
 
 parser.add_argument("--test", action='store_true', help="Call if you want to only test on the best checkpoint.")
+parser.add_argument("--training_data_percentage", type=float, default=1.0, help="Percentage of training data")
 parser.add_argument("--predict", action='store_true', help="Call if you want to predict on the best checkpoint.")
 parser.add_argument("--sentence_hyp", type=str, default='Hi.', help="Call if you want to predict with this hypothesis.")
 parser.add_argument("--sentence_pre", type=str, default='hello.', help="Call if you want to predict  with this premise.")
@@ -96,6 +97,7 @@ def load_parameters():
         "emb_train": args.emb_train,
         "alpha": args.alpha,
         "genre": args.genre,
+        "training_data_percentage" : args.training_data_percentage,
         "predict": args.predict,
         "sentence_hyp": args.sentence_hyp,
         "sentence_pre": args.sentence_pre

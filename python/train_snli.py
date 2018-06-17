@@ -44,6 +44,8 @@ else:
     ######################### LOAD DATA #############################
     logger.Log("Loading data")
     training_snli = load_nli_data(FIXED_PARAMETERS["training_snli"], snli=True)
+    training_snli = random.sample(training_snli, int(len(training_snli) * FIXED_PARAMETERS["training_data_percentage"]))
+    print(len(training_snli))
     dev_snli = load_nli_data(FIXED_PARAMETERS["dev_snli"], snli=True)
     test_snli = load_nli_data(FIXED_PARAMETERS["test_snli"], snli=True)
 
