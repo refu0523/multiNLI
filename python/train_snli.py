@@ -44,8 +44,8 @@ else:
     ######################### LOAD DATA #############################
     logger.Log("Loading data")
     training_snli = load_nli_data(FIXED_PARAMETERS["training_snli"], snli=True)
-    training_snli = random.sample(training_snli, int(len(training_snli) * FIXED_PARAMETERS["training_data_percentage"]))
-    print(len(training_snli))
+    sample_size = int(len(training_snli) * FIXED_PARAMETERS["training_data_percentage"])
+    training_snli = random.sample(training_snli, sample_size)
     dev_snli = load_nli_data(FIXED_PARAMETERS["dev_snli"], snli=True)
     test_snli = load_nli_data(FIXED_PARAMETERS["test_snli"], snli=True)
 
@@ -126,12 +126,11 @@ class modelClassifier:
 
     def get_minibatch(self, dataset, start_index, end_index):
         indices = range(start_index, end_index)
-
         premise_vectors = np.vstack([dataset[i]['sentence1_binary_parse_index_sequence'] for i in indices])
         hypothesis_vectors = np.vstack([dataset[i]['sentence2_binary_parse_index_sequence'] for i in indices])
 
-        premise_pos_vectors = generate_pos_feature_tensor([training_snli[i]['sentence1_parse'][:] for i in indices], self.sequence_length)
-        hypothesis_pos_vectors = generate_pos_feature_tensor([training_snli[i]['sentence2_parse'][:] for i in indices], self.sequence_length)
+        premise_pos_vectors = generate_pos_feature_tensor([dataset[i]['sentence1_parse'][:] for i in indices], self.sequence_length)
+        hypothesis_pos_vectors = generate_pos_feature_tensor([dataset[i]['sentence2_parse'][:] for i in indices], self.sequence_length)
 
         genres = [dataset[i]['genre'] for i in indices]
         labels = [dataset[i]['label'] for i in indices]
@@ -177,7 +176,6 @@ class modelClassifier:
             random.shuffle(training_data)
             avg_cost = 0.
             total_batch = int(len(training_data) / self.batch_size)
-            
             # Loop over all batches in epoch
             for i in range(total_batch):
                 # Assemble a minibatch of the next B examples
