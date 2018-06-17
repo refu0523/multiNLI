@@ -109,7 +109,7 @@ class MyModel(object):
 
                 score_ij_ori = tf.reduce_sum(tf.multiply(premise_list[i], hypothesis_list[j]), 1, keep_dims=True)
                 ext_r = tf.expand_dims(self.R_mat[:,i,j],axis=1)
-                score_ij = score_ij_ori + ext_r
+                score_ij = score_ij_ori + ext_r*0.2
                 scores_i_list.append(score_ij)
                 r_ij = self.R_mat[:,i,j]
                 r_i_list.append(r_ij)
@@ -191,10 +191,15 @@ class MyModel(object):
         FM_hyp_diff = tf.expand_dims(blocks.factorize_machine(hyp_diff), 2)
         FM_hyp_mul = tf.expand_dims(blocks.factorize_machine(hyp_mul), 2)
 
-        m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul,
-                         FM_premise_self_attns, FM_prem_self_diff, FM_prem_self_mul, r_alphas], 2)
-        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul,
-                         FM_hypothesis_self_attns, FM_hyp_self_diff, FM_hyp_self_mul, r_betas], 2)
+        m_a_ = tf.concat([premise_bi, premise_attns, prem_diff, prem_mul, r_alphas], 2)
+        m_b_ = tf.concat([hypothesis_bi, hypothesis_attns, hyp_diff, hyp_mul, r_betas], 2)
+        m_a = blocks.dense(m_a_, 300)
+        m_b = blocks.dense(m_b_, 300)
+        #pdb.set_trace()
+#        m_a = tf.concat([premise_bi, FM_premise_attns, FM_prem_diff, FM_prem_mul,
+#                         FM_premise_self_attns, FM_prem_self_diff, FM_prem_self_mul, r_alphas], 2)
+#        m_b = tf.concat([hypothesis_bi, FM_hypothesis_attns, FM_hyp_diff, FM_hyp_mul,
+#                         FM_hypothesis_self_attns, FM_hyp_self_diff, FM_hyp_self_mul, r_betas], 2)
         
         
         ### Inference Composition ###

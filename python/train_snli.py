@@ -24,8 +24,8 @@ module = importlib.import_module(".".join(['models', model]))
 MyModel = getattr(module, 'MyModel')
 
 ## load external_knowledge_dict
-f_name = './snli_trainAll_realtionship_feat_word2index.pkl'
-extknow_dic = pickle.load(open(f_name,'rb'))
+#f_name = './snli_trainAll_realtionship_feat_word2index.pkl'
+#extknow_dic = pickle.load(open(f_name,'rb'))
 
 # Logging parameter settings at each launch of training script
 # This will help ensure nothing goes awry in reloading a model and we consistenyl use the same hyperparameter settings. 
@@ -44,7 +44,8 @@ else:
     ######################### LOAD DATA #############################
     logger.Log("Loading data")
     training_snli = load_nli_data(FIXED_PARAMETERS["training_snli"], snli=True)
-    sample_size = int(len(training_snli) * FIXED_PARAMETERS["training_data_percentage"])
+#    sample_size = int(len(training_snli) * FIXED_PARAMETERS["training_data_percentage"])
+    sample_size = int(len(training_snli) * 0.008)
     training_snli = random.sample(training_snli, sample_size)
     dev_snli = load_nli_data(FIXED_PARAMETERS["dev_snli"], snli=True)
     test_snli = load_nli_data(FIXED_PARAMETERS["test_snli"], snli=True)
@@ -70,7 +71,19 @@ else:
         logger.Log("Padding and indexifying sentences")
         sentences_to_padded_index_sequences(word_indices, [training_mnli, training_snli, dev_matched, dev_mismatched, dev_snli, test_snli, test_matched, test_mismatched])
     
-
+    print('starting building wordnet feature encode')
+    snli_realtionship_feat = {}
+    for i in range(12):
+        f_name = './snli_subset/snli_train_subset'+str(i+1)+'_relationship_feat.pkl'
+        tmp_dic = pickle.load(open(f_name,'rb'))
+        snli_realtionship_feat.update(tmp_dic)
+    extknow_dic = {}
+    for key,val in snli_realtionship_feat.items():
+        if key[0] in word_indices and key[1] in word_indices:
+            word1_idx = word_indices[key[0]]
+            word2_idx = word_indices[key[1]]
+        extknow_dic[(word1_idx,word2_idx)] = val
+    
 
 
 if 'temp.jsonl' in FIXED_PARAMETERS["test_matched"]:
